@@ -1,0 +1,56 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() { return request.auth != null; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'usdBalance', 'assetBalance'])
+        && (data.keys().hasAll(['depositAddresses']) ? data.keys().size() == 4 : data.keys().size() == 3)
+        && data.email is string && data.email.size() <= 200
+        && data.usdBalance is number
+        && data.assetBalance is number
+        && (data.keys().hasAll(['depositAddresses']) ? data.depositAddresses is map : true);
+    }
+
+    function isValidTrade(data, userId) {
+      return data.keys().hasAll(['userId', 'type', 'price', 'amount', 'usdValue', 'date', 'reason'])
+        && data.keys().size() == 7
+        && data.userId is string && data.userId == userId
+        && data.type is string && (data.type == 'buy' || data.type == 'sell')
+        && data.price is number
+        && data.amount is number
+        && data.usdValue is number
+        && data.date is string && data.date.size() <= 100
+        && data.reason is string && data.reason.size() <= 200;
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+      
+      allow create: if isSignedIn() && isValidId(userId) 
+        && request.auth.uid == userId
+        && isValidUser(incoming());
+
+      allow update: if isSignedIn() && isValidId(userId)
+        && request.auth.uid == userId
+        && isValidUser(incoming())
+        && incoming().diff(existing()).affectedKeys().hasOnly(['usdBalance', 'assetBalance', 'depositAddresses']);
+      
+      match /trades/{tradeId} {
+        allow list: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+        allow get: if isSignedIn() && isValidId(userId) && isValidId(tradeId) && request.auth.uid == userId;
+
+        allow create: if isSignedIn() && isValidId(userId) && isValidId(tradeId)
+          && request.auth.uid == userId
+          && isValidTrade(incoming(), userId);
+      }
+    }
+  }
+}

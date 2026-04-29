@@ -1,0 +1,40 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile with balance",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "usdBalance": { "type": "number" },
+        "assetBalance": { "type": "number" }
+      },
+      "required": ["email", "usdBalance", "assetBalance"]
+    },
+    "Trade": {
+      "title": "Trade",
+      "description": "A single trade execution",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "type": { "type": "string", "enum": ["buy", "sell"] },
+        "price": { "type": "number" },
+        "amount": { "type": "number" },
+        "usdValue": { "type": "number" },
+        "date": { "type": "string" },
+        "reason": { "type": "string" }
+      },
+      "required": ["userId", "type", "price", "amount", "usdValue", "date", "reason"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Stores user balances"
+    },
+    "/users/{userId}/trades/{tradeId}": {
+      "schema": { "$ref": "#/entities/Trade" },
+      "description": "Stores trade history for a user"
+    }
+  }
+}
